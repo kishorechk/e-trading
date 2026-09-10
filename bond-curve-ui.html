@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EGB Curve Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     Design tokens — extracted from DARK_PALETTE (Palette)
+     ============================================================ */
+  :root{
+    --primary:#BED530; --primary-hover:#82c538; --selected:#3FB344;
+    --i-disabled:#AAAAAA; --highlighted:#677967; --i-bg:rgba(237,242,245,.10);
+    --t-body:#DBDBDB; --t-heading:#FFFFFF; --t-disabled:#BDC2C7; --t-critical:#A5283B;
+    --t-link:#008886; --t-error:#C70032; --t-success:#3FB344; --t-secondary:#5F6C75; --t-inverted:#0d0d0d;
+    --ic-default:#FFFFFF; --ic-disabled:#505050;
+    --fn-critical:#A5283B; --fn-warning:#F6CE49; --fn-warning-orange:#FC992E;
+    --fn-success:#159B00; --fn-info:#51A1BE; --fn-light:#d4d4d4;
+    --s-bg:#121212; --s-fg:#121E18; --s-fg2:#282828;
+    --b-default:#3D4736; --b-subdued:#2C3630; --b-critical:#A5283B; --b-primary:#BED530;
+    --sup1:#1D4A36; --sup2:#B95D3A; --sup3:#E7ECB0;
+    --env-dev:#EEF525; --env-qa:#40A4FF; --env-uat:#B026FF; --env-prod:#FFFFFF0F;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:'Inter',system-ui,-apple-system,sans-serif;
+    --radius:6px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--s-bg);color:var(--t-body);font-family:var(--sans);font-size:13px;
+    -webkit-font-smoothing:antialiased;padding:18px;line-height:1.4;}
+  .wrap{max-width:1180px;margin:0 auto;}
+
+  /* App bar */
+  .appbar{display:flex;align-items:center;gap:14px;padding:0 2px 14px;flex-wrap:wrap;}
+  .appbar .mark{display:flex;align-items:center;gap:9px;}
+  .appbar .mark .glyph{width:26px;height:26px;border-radius:6px;background:var(--primary);
+    color:var(--t-inverted);font-family:var(--mono);font-weight:700;font-size:15px;display:flex;align-items:center;justify-content:center;}
+  .appbar h1{font-size:14px;font-weight:600;color:var(--t-heading);letter-spacing:.01em;}
+  .appbar h1 span{color:var(--t-secondary);font-weight:500;}
+  .appbar .spacer{flex:1;}
+  .env{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.1em;padding:4px 9px;border-radius:4px;
+    color:var(--env-uat);border:1px solid var(--env-uat);background:rgba(176,38,255,.12);}
+  .meta{display:flex;gap:16px;font-family:var(--mono);font-size:11px;color:var(--t-secondary);}
+  .meta b{color:var(--t-body);font-weight:600;}
+  .meta .fresh{color:var(--selected);}
+
+  /* Country tabs */
+  .tab-bar{display:flex;gap:2px;border-bottom:1px solid var(--b-default);margin-bottom:16px;}
+  .tab{display:flex;align-items:center;gap:10px;padding:9px 16px;background:var(--s-fg);
+    border:1px solid var(--b-subdued);border-bottom:none;border-radius:6px 6px 0 0;
+    color:var(--t-secondary);cursor:pointer;font-weight:600;font-size:12px;position:relative;top:1px;}
+  .tab .flag{font-size:13px;}
+  .tab.active{background:var(--s-fg2);color:var(--t-heading);border-top:2px solid var(--primary);}
+  .tab .curve-btn{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:4px;cursor:pointer;
+    background:rgba(190,213,48,.14);color:var(--primary);border:1px solid rgba(190,213,48,.4);transition:all .12s;}
+  .tab .curve-btn:hover{background:var(--primary);color:var(--t-inverted);}
+
+  /* Panel */
+  .panel{background:var(--s-fg);border:1px solid var(--b-default);border-radius:8px;overflow:hidden;
+    box-shadow:0 16px 40px -22px rgba(0,0,0,.8);}
+  .panel-head{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid var(--b-default);
+    background:var(--s-fg2);flex-wrap:wrap;}
+  .panel-head .title{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:700;color:var(--t-heading);}
+  .panel-head .title .tilde{font-family:var(--mono);color:var(--primary);}
+  .panel-head .ctrls{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap;}
+
+  select,input[type=text]{background:var(--s-bg);border:1px solid var(--b-default);color:var(--t-body);
+    padding:7px 10px;border-radius:5px;outline:none;font-family:var(--sans);font-size:12px;}
+  select:focus,input[type=text]:focus{border-color:var(--primary);}
+  .lbl-select{display:flex;flex-direction:column;gap:3px;}
+  .lbl-select label{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--t-secondary);}
+
+  /* fit-quality strip (fixed, non-collapsible) */
+  .fitstrip{display:grid;grid-template-columns:repeat(5,1fr);border-bottom:1px solid var(--b-default);}
+  .fitcell{padding:10px 16px;border-right:1px solid var(--b-subdued);display:flex;flex-direction:column;gap:3px;}
+  .fitcell:last-child{border-right:0;}
+  .fitcell .k{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--t-secondary);}
+  .fitcell .v{font-family:var(--mono);font-size:16px;font-weight:700;color:var(--t-heading);}
+  .fitcell .v.good{color:var(--selected);}
+  .fitcell .v.warn{color:var(--fn-warning);}
+  .fitcell .sub{font-family:var(--mono);font-size:10px;color:var(--t-secondary);}
+
+  .body{padding:16px;}
+
+  /* ---------- collapsible section ---------- */
+  .csec{border:1px solid var(--b-default);border-radius:6px;background:var(--s-bg);overflow:hidden;}
+  .body > .csec{margin-bottom:16px;}
+  .csec-head{width:100%;display:flex;align-items:center;gap:10px;padding:10px 13px;background:var(--s-bg);
+    border:0;border-bottom:1px solid var(--b-subdued);color:var(--t-secondary);font-family:var(--sans);
+    font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;cursor:pointer;text-align:left;}
+  .csec-head:hover{color:var(--t-body);}
+  .csec-head .chev{color:var(--primary);font-size:10px;transition:transform .15s ease;display:inline-block;}
+  .csec-head .csec-sum{margin-left:auto;font-family:var(--mono);font-size:10px;letter-spacing:0;
+    text-transform:none;color:var(--t-secondary);font-weight:500;}
+  .csec.collapsed .csec-head{border-bottom:0;}
+  .csec.collapsed .csec-head .chev{transform:rotate(-90deg);}
+  .csec.collapsed .csec-body{display:none;}
+  .csec-body{padding:14px 13px;}
+
+  /* add-instrument bar */
+  .addbar{display:flex;gap:10px;margin-bottom:14px;align-items:flex-end;}
+  .addbar .grow{flex:1;display:flex;flex-direction:column;gap:3px;}
+  .addbar label{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--t-secondary);}
+  .addbar input[type=text]{width:100%;}
+  .btn{font-family:var(--sans);font-weight:700;font-size:12px;border:1px solid transparent;border-radius:5px;
+    padding:8px 15px;cursor:pointer;white-space:nowrap;transition:filter .12s;}
+  .btn:hover{filter:brightness(1.1);}
+  .btn-primary{background:var(--primary);color:var(--t-inverted);}
+  .btn-ghost{background:var(--s-fg2);color:var(--t-body);border-color:var(--b-default);}
+  .btn-danger{background:rgba(165,40,59,.16);color:var(--t-critical);border-color:var(--b-critical);}
+  .btn-xs{padding:3px 9px;font-size:11px;border-radius:4px;}
+
+  /* constituents table */
+  .tbl-wrap{border:1px solid var(--b-default);border-radius:6px;overflow:auto;}
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  thead th{background:var(--s-bg);color:var(--t-secondary);font-weight:600;text-align:right;
+    padding:8px 12px;border-bottom:1px solid var(--b-default);font-size:10px;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;}
+  thead th:first-child,thead th:nth-child(2){text-align:left;}
+  tbody td{padding:8px 12px;border-bottom:1px solid var(--b-subdued);text-align:right;font-family:var(--mono);color:var(--t-body);white-space:nowrap;}
+  tbody td:first-child,tbody td:nth-child(2){text-align:left;}
+  tbody tr:last-child td{border-bottom:0;}
+  tbody tr:hover{background:var(--s-fg2);}
+  tbody tr.locked{background:rgba(190,213,48,.05);}
+  tbody tr.outlier{background:rgba(165,40,59,.08);}
+  .issuer{font-family:var(--sans);font-weight:600;color:var(--t-heading);}
+  .resid.ok{color:var(--selected);}
+  .resid.warn{color:var(--fn-warning);}
+  .resid.bad{color:var(--t-error);}
+  .actions-cell{display:flex;gap:6px;justify-content:flex-end;}
+  .badge{font-family:var(--sans);padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;
+    text-transform:uppercase;letter-spacing:.03em;display:inline-flex;align-items:center;gap:4px;}
+  .badge.anchor{background:rgba(63,179,68,.15);color:var(--selected);border:1px solid var(--selected);}
+  .badge.spread{background:rgba(246,206,73,.15);color:var(--fn-warning);border:1px solid var(--fn-warning);}
+  .badge.fx{background:rgba(81,161,190,.15);color:var(--fn-info);border:1px solid var(--fn-info);}
+  .badge.excl{background:rgba(165,40,59,.15);color:var(--t-critical);border:1px solid var(--b-critical);}
+  .lockpill{font-family:var(--mono);font-size:10px;color:var(--primary);display:inline-flex;align-items:center;gap:3px;}
+
+  /* split: engine controls | preview */
+  .split{display:grid;grid-template-columns:320px 1fr;gap:16px;margin-bottom:16px;align-items:start;}
+  @media (max-width:820px){.split{grid-template-columns:1fr;}}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .sub-body{display:flex;flex-direction:column;gap:11px;}
+  .row .k{font-size:12px;color:var(--t-body);}
+  .row .k .hint{color:var(--t-secondary);font-size:10px;display:block;}
+  .row .v{font-family:var(--mono);font-size:12px;color:var(--t-heading);}
+  .toggle{width:38px;height:20px;border-radius:20px;background:var(--s-fg2);border:1px solid var(--b-default);position:relative;cursor:pointer;flex:none;}
+  .toggle.on{background:rgba(63,179,68,.3);border-color:var(--selected);}
+  .toggle::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--t-secondary);transition:all .15s;}
+  .toggle.on::after{left:20px;background:var(--selected);}
+  .thin-input{background:var(--s-fg);border:1px solid var(--b-default);color:var(--t-body);border-radius:4px;
+    padding:5px 8px;font-family:var(--mono);font-size:12px;width:84px;text-align:right;}
+  .thin-input:focus{outline:none;border-color:var(--primary);}
+
+  /* curve preview */
+  .legend{display:flex;gap:14px;font-size:10px;font-family:var(--mono);color:var(--t-secondary);margin-bottom:8px;flex-wrap:wrap;}
+  .legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:middle;}
+
+  /* footer */
+  .foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 16px;
+    border-top:1px solid var(--b-default);background:var(--s-fg2);flex-wrap:wrap;}
+  .statusline{display:flex;gap:8px;align-items:center;font-family:var(--mono);font-size:11px;color:var(--t-secondary);flex-wrap:wrap;}
+  .chip{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:4px;background:var(--s-bg);border:1px solid var(--b-subdued);}
+  .chip .d{width:7px;height:7px;border-radius:50%;}
+  .chip .d.on{background:var(--selected);box-shadow:0 0 6px var(--selected);}
+  .chip .d.info{background:var(--fn-info);}
+  .foot .acts{display:flex;gap:10px;margin-left:auto;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="appbar">
+    <div class="mark">
+      <div class="glyph">~</div>
+      <h1>EGB Curve Builder&nbsp;<span>· Cross-Country Fitting Engine</span></h1>
+    </div>
+    <div class="spacer"></div>
+    <span class="env">UAT</span>
+    <div class="meta">
+      <span>As of&nbsp; <b>10-Sep-26 14:32:07 BST</b></span>
+      <span>Last fit&nbsp; <b class="fresh">4s ago</b></span>
+      <span>Source&nbsp; <b>CBBT / TradeWeb</b></span>
+    </div>
+  </div>
+
+  <div class="tab-bar">
+    <div class="tab active"><span class="flag">🇩🇪</span> Germany · Bund <button class="curve-btn" title="Configure curve engine">~ Curve</button></div>
+    <div class="tab"><span class="flag">🇫🇷</span> France · OAT <button class="curve-btn">~ Curve</button></div>
+    <div class="tab"><span class="flag">🇮🇹</span> Italy · BTP <button class="curve-btn">~ Curve</button></div>
+    <div class="tab"><span class="flag">🇪🇸</span> Spain · Bono <button class="curve-btn">~ Curve</button></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <div class="title"><span class="tilde">[~]</span> Curve Configuration :: Germany (Bund) base curve</div>
+      <div class="ctrls">
+        <div class="lbl-select"><label>Model</label>
+          <select><option>Nelson-Siegel-Svensson</option><option>Monotone Convex Spline</option><option>Cubic B-Spline</option></select></div>
+        <div class="lbl-select"><label>Interpolation</label>
+          <select><option>Log-linear (zero)</option><option>Linear (yield)</option><option>Cubic Hermite</option></select></div>
+        <div class="lbl-select"><label>Day count</label>
+          <select><option>ACT/ACT (ICMA)</option><option>ACT/365F</option><option>30/360</option></select></div>
+        <div class="lbl-select"><label>Compounding</label>
+          <select><option>Annual</option><option>Semi-annual</option><option>Continuous</option></select></div>
+      </div>
+    </div>
+
+    <div class="fitstrip">
+      <div class="fitcell"><span class="k">Fit RMSE</span><span class="v good">0.42 bps</span><span class="sub">tol ≤ 1.5</span></div>
+      <div class="fitcell"><span class="k">Max residual</span><span class="v warn">1.8 bps</span><span class="sub">BTP 30Y</span></div>
+      <div class="fitcell"><span class="k">Active nodes</span><span class="v">11 / 14</span><span class="sub">2 locked · 1 excluded</span></div>
+      <div class="fitcell"><span class="k">Curve tenor</span><span class="v">3M – 30Y</span><span class="sub">18 pillars</span></div>
+      <div class="fitcell"><span class="k">FX basis</span><span class="v">EUR/USD 3M</span><span class="sub">−18.4 bps applied</span></div>
+    </div>
+
+    <div class="body">
+
+      <!-- Constituents (collapsible) -->
+      <div class="csec" data-key="constituents">
+        <button class="csec-head"><span class="chev">▾</span> Constituents <span class="csec-sum">8 instruments · 2 locked · 1 excluded</span></button>
+        <div class="csec-body">
+          <div class="addbar">
+            <div class="grow">
+              <label>Add constituent</label>
+              <input type="text" placeholder="Search ISIN, ticker or issuer — e.g. DE0001102614, BTP 10Y, US91282CJL80…">
+            </div>
+            <div class="lbl-select" style="min-width:180px;">
+              <label>Role</label>
+              <select><option>Anchor node</option><option>Cross-country spread</option><option>FX-swapped (→EUR)</option><option>Reference only (excluded)</option></select>
+            </div>
+            <button class="btn btn-primary">+ Add to curve</button>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr><th>ISIN</th><th>Issuer</th><th>Ctry</th><th>Cpn</th><th>Maturity</th>
+                <th>Mkt Yield</th><th>Fitted</th><th>Resid</th><th>Role</th><th>Offset</th><th>Wt</th><th>Actions</th></tr>
+              </thead>
+              <tbody>
+                <tr class="locked"><td>DE0001102572</td><td class="issuer">BUND</td><td>DE</td><td>2.00</td><td>2.00Y</td>
+                  <td>2.285%</td><td>2.285%</td><td class="resid ok">+0.0</td><td><span class="badge anchor">Anchor</span></td><td>0.0</td><td>1.00</td>
+                  <td class="actions-cell"><span class="lockpill">🔒 Locked</span></td></tr>
+                <tr class="locked"><td>DE0001102614</td><td class="issuer">BUND</td><td>DE</td><td>2.60</td><td>10.00Y</td>
+                  <td>2.810%</td><td>2.810%</td><td class="resid ok">+0.0</td><td><span class="badge anchor">Anchor</span></td><td>0.0</td><td>1.00</td>
+                  <td class="actions-cell"><span class="lockpill">🔒 Locked</span></td></tr>
+                <tr><td>DE0001102481</td><td class="issuer">BUND</td><td>DE</td><td>1.80</td><td>30.00Y</td>
+                  <td>3.045%</td><td>3.043%</td><td class="resid ok">−0.2</td><td><span class="badge anchor">Anchor</span></td><td>0.0</td><td>0.80</td>
+                  <td class="actions-cell"><button class="btn btn-ghost btn-xs">Lock</button></td></tr>
+                <tr><td>FR0013154028</td><td class="issuer">OAT</td><td>FR</td><td>3.00</td><td>10.00Y</td>
+                  <td>3.330%</td><td>3.331%</td><td class="resid ok">+0.1</td><td><span class="badge spread">Spread</span></td><td>+52.0</td><td>0.70</td>
+                  <td class="actions-cell"><button class="btn btn-ghost btn-xs">Lock</button><button class="btn btn-danger btn-xs">Remove</button></td></tr>
+                <tr><td>IT0005436693</td><td class="issuer">BTP</td><td>IT</td><td>4.00</td><td>10.00Y</td>
+                  <td>3.620%</td><td>3.621%</td><td class="resid ok">+0.1</td><td><span class="badge spread">Spread</span></td><td>+81.0</td><td>0.60</td>
+                  <td class="actions-cell"><button class="btn btn-ghost btn-xs">Lock</button><button class="btn btn-danger btn-xs">Remove</button></td></tr>
+                <tr><td>IT0005611741</td><td class="issuer">BTP</td><td>IT</td><td>4.50</td><td>30.00Y</td>
+                  <td>4.180%</td><td>4.162%</td><td class="resid warn">+1.8</td><td><span class="badge spread">Spread</span></td><td>+112.0</td><td>0.40</td>
+                  <td class="actions-cell"><button class="btn btn-ghost btn-xs">Lock</button><button class="btn btn-danger btn-xs">Remove</button></td></tr>
+                <tr><td>US91282CJL80</td><td class="issuer">UST</td><td>US</td><td>4.25</td><td>10.00Y</td>
+                  <td>4.150%</td><td>4.151%</td><td class="resid ok">+0.1</td><td><span class="badge fx">FX→EUR</span></td><td>+24.5</td><td>0.30</td>
+                  <td class="actions-cell"><button class="btn btn-ghost btn-xs">Lock</button><button class="btn btn-danger btn-xs">Remove</button></td></tr>
+                <tr class="outlier"><td>ES00000128S2</td><td class="issuer">BONO</td><td>ES</td><td>3.55</td><td>5.00Y</td>
+                  <td>2.940%</td><td>3.010%</td><td class="resid bad">−7.0</td><td><span class="badge excl">Excluded · outlier</span></td><td>—</td><td>0.00</td>
+                  <td class="actions-cell"><button class="btn btn-ghost btn-xs">Re-include</button><button class="btn btn-danger btn-xs">Remove</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="split">
+        <!-- Engine controls (collapsible) -->
+        <div class="csec" data-key="engine">
+          <button class="csec-head"><span class="chev">▾</span> Engine controls <span class="csec-sum">6 settings</span></button>
+          <div class="csec-body">
+            <div class="sub-body">
+              <div class="row"><div class="k">FX basis-swap adjustment<span class="hint">EUR/USD, source: Bloomberg BGN</span></div><div class="toggle on"></div></div>
+              <div class="row"><div class="k">Basis tenor</div><div class="v">3M rolling</div></div>
+              <div class="row"><div class="k">Outlier guardrail<span class="hint">exclude beyond z-score</span></div><div class="toggle on"></div></div>
+              <div class="row"><div class="k">Z-score threshold</div><input class="thin-input" value="2.50"></div>
+              <div class="row"><div class="k">Auto-refit on tick<span class="hint">re-solve when market moves</span></div><div class="toggle on"></div></div>
+              <div class="row"><div class="k">Extrapolation</div><div class="v">Flat forward</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Curve preview (collapsible) -->
+        <div class="csec" data-key="preview">
+          <button class="csec-head"><span class="chev">▾</span> Curve preview <span class="csec-sum">3M – 30Y · fitted</span></button>
+          <div class="csec-body">
+            <div class="legend">
+              <span><i style="background:#BED530"></i>Bund fit</span>
+              <span><i style="background:#F6CE49"></i>Spread node</span>
+              <span><i style="background:#51A1BE"></i>FX-swapped</span>
+              <span><i style="background:#A5283B"></i>Outlier</span>
+            </div>
+            <svg viewBox="0 0 640 220" width="100%" height="210" xmlns="http://www.w3.org/2000/svg">
+              <g stroke="#2C3630" stroke-width="1">
+                <line x1="40" y1="10" x2="40" y2="185"/>
+                <line x1="40" y1="185" x2="620" y2="185"/>
+                <line x1="40" y1="140" x2="620" y2="140" stroke="#1e241d"/>
+                <line x1="40" y1="95" x2="620" y2="95" stroke="#1e241d"/>
+                <line x1="40" y1="50" x2="620" y2="50" stroke="#1e241d"/>
+              </g>
+              <g fill="#5F6C75" font-family="JetBrains Mono, monospace" font-size="9">
+                <text x="8" y="188">2.0</text><text x="8" y="143">2.5</text><text x="8" y="98">3.0</text><text x="8" y="53">3.5</text><text x="8" y="14">4.2</text>
+                <text x="44" y="200">3M</text><text x="150" y="200">2Y</text><text x="300" y="200">5Y</text><text x="450" y="200">10Y</text><text x="600" y="200">30Y</text>
+              </g>
+              <path d="M48,168 C120,150 200,120 300,96 S470,60 612,44" fill="none" stroke="#BED530" stroke-width="2.5"/>
+              <g fill="#3FB344" stroke="#121212" stroke-width="1.5">
+                <circle cx="150" cy="129" r="4.5"/><circle cx="450" cy="66" r="4.5"/><circle cx="612" cy="44" r="4.5"/></g>
+              <g fill="#F6CE49" stroke="#121212" stroke-width="1.5">
+                <circle cx="450" cy="52" r="4"/><circle cx="450" cy="40" r="4"/><circle cx="612" cy="20" r="4"/></g>
+              <circle cx="450" cy="30" r="4" fill="#51A1BE" stroke="#121212" stroke-width="1.5"/>
+              <circle cx="300" cy="118" r="4" fill="#A5283B" stroke="#121212" stroke-width="1.5"/>
+              <line x1="300" y1="96" x2="300" y2="118" stroke="#A5283B" stroke-width="1" stroke-dasharray="3 2"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="foot">
+      <div class="statusline">
+        <span class="chip"><span class="d on"></span> FX basis: active</span>
+        <span class="chip"><span class="d on"></span> Guardrails: z ≤ 2.5</span>
+        <span class="chip"><span class="d info"></span> Auto-refit: on-tick</span>
+        <span>· solver converged in 6 iters</span>
+      </div>
+      <div class="acts">
+        <button class="btn btn-ghost">Cancel</button>
+        <button class="btn btn-ghost">Save snapshot</button>
+        <button class="btn btn-primary">Apply &amp; reprice desk</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  var KEY = 'egb-curve-sections';
+  var state = {};
+  try { state = JSON.parse(localStorage.getItem(KEY)) || {}; } catch(e) {}
+  document.querySelectorAll('.csec').forEach(function(sec){
+    var key = sec.getAttribute('data-key');
+    if (state[key] === true) sec.classList.add('collapsed');
+    sec.querySelector('.csec-head').addEventListener('click', function(){
+      sec.classList.toggle('collapsed');
+      state[key] = sec.classList.contains('collapsed');
+      try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e) {}
+    });
+  });
+})();
+</script>
+</body>
+</html>
